@@ -300,10 +300,11 @@ func (es *EventSystem) SubscribeNewHeads(headers chan *types.Header) *Subscripti
 
 // SubscribePendingTxs creates a subscription that writes transaction hashes for
 // transactions that enter the transaction pool.
-func (es *EventSystem) SubscribePendingTxs(hashes chan []common.Hash) *Subscription {
+func (es *EventSystem) SubscribePendingTxs(crit *ethereum.FilterQuery, hashes chan []common.Hash) *Subscription {
 	sub := &subscription{
 		id:        rpc.NewID(),
 		typ:       PendingTransactionsSubscription,
+		logsCrit:  *crit,
 		created:   time.Now(),
 		logs:      make(chan []*types.Log),
 		hashes:    hashes,
@@ -348,12 +349,32 @@ func (es *EventSystem) broadcast(filters filterIndex, ev interface{}) {
 			}
 		}
 	case core.NewTxsEvent:
-		hashes := make([]common.Hash, 0, len(e.Txs))
-		for _, tx := range e.Txs {
-			hashes = append(hashes, tx.Hash())
-		}
+		filtersWithoutAddress := false
 		for _, f := range filters[PendingTransactionsSubscription] {
-			f.hashes <- hashes
+			if f.logsCrit.Addresses == nil {
+				filtersWithoutAddress = true
+				continue
+			}
+			hash := make([]common.Hash, 0, 1)
+			for _, tx := range e.Txs {
+				to := tx.To()
+				if to != nil && includes(f.logsCrit.Addresses, *to) {
+					hash[0] = tx.Hash()
+					f.hashes <- hash
+				}
+			}
+		}
+		if filtersWithoutAddress {
+			hashes := make([]common.Hash, 0, len(e.Txs))
+			for _, tx := range e.Txs {
+				hashes = append(hashes, tx.Hash())
+			}
+			for _, f := range filters[PendingTransactionsSubscription] {
+				if f.logsCrit.Addresses != nil {
+					continue
+				}
+				f.hashes <- hashes
+			}
 		}
 	case core.ChainEvent:
 		for _, f := range filters[BlocksSubscription] {
