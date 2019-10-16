@@ -300,11 +300,11 @@ func (es *EventSystem) SubscribeNewHeads(headers chan *types.Header) *Subscripti
 
 // SubscribePendingTxs creates a subscription that writes transaction hashes for
 // transactions that enter the transaction pool.
-func (es *EventSystem) SubscribePendingTxs(crit *ethereum.FilterQuery, hashes chan []common.Hash) *Subscription {
+func (es *EventSystem) SubscribePendingTxs(crit ethereum.FilterQuery, hashes chan []common.Hash) *Subscription {
 	sub := &subscription{
 		id:        rpc.NewID(),
 		typ:       PendingTransactionsSubscription,
-		logsCrit:  *crit,
+		logsCrit:  crit,
 		created:   time.Now(),
 		logs:      make(chan []*types.Log),
 		hashes:    hashes,

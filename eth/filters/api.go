@@ -105,7 +105,7 @@ func (api *PublicFilterAPI) timeoutLoop() {
 func (api *PublicFilterAPI) NewPendingTransactionFilter() rpc.ID {
 	var (
 		pendingTxs   = make(chan []common.Hash)
-		pendingTxSub = api.events.SubscribePendingTxs(nil, pendingTxs)
+		pendingTxSub = api.events.SubscribePendingTxs(ethereum.FilterQuery{}, pendingTxs)
 	)
 
 	api.filtersMu.Lock()
@@ -135,7 +135,7 @@ func (api *PublicFilterAPI) NewPendingTransactionFilter() rpc.ID {
 
 // NewPendingTransactions creates a subscription that is triggered each time a transaction
 // enters the transaction pool and was signed from one of the transactions this nodes manages.
-func (api *PublicFilterAPI) NewPendingTransactions(ctx context.Context) (*rpc.Subscription, error) {
+func (api *PublicFilterAPI) NewPendingTransactions(ctx context.Context, crit FilterCriteria) (*rpc.Subscription, error) {
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -145,7 +145,7 @@ func (api *PublicFilterAPI) NewPendingTransactions(ctx context.Context) (*rpc.Su
 
 	go func() {
 		txHashes := make(chan []common.Hash, 128)
-		pendingTxSub := api.events.SubscribePendingTxs(nil, txHashes)
+		pendingTxSub := api.events.SubscribePendingTxs(ethereum.FilterQuery(crit), txHashes)
 
 		for {
 			select {
