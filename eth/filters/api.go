@@ -456,34 +456,6 @@ func returnLogs(logs []*types.Log) []*types.Log {
 	return logs
 }
 
-// rawAddresses can contain a single address or an array of addresses
-func parseAddresses(rawAddresses interface{}) ([]common.Address, error) {
-	addresses := []common.Address{}
-	switch rawAddr := rawAddresses.(type) {
-	case []interface{}:
-		for i, addr := range rawAddr {
-			if strAddr, ok := addr.(string); ok {
-				addr, err := decodeAddress(strAddr)
-				if err != nil {
-					return nil, fmt.Errorf("invalid address at index %d: %v", i, err)
-				}
-				addresses = append(addresses, addr)
-			} else {
-				return nil, fmt.Errorf("non-string address at index %d", i)
-			}
-		}
-	case string:
-		addr, err := decodeAddress(rawAddr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid address: %v", err)
-		}
-		addresses = []common.Address{addr}
-	default:
-		return nil, errors.New("invalid addresses in query")
-	}
-	return addresses, nil
-}
-
 // UnmarshalJSON sets *args fields with given data.
 func (args *FilterCriteria) UnmarshalJSON(data []byte) error {
 	type input struct {
@@ -515,12 +487,32 @@ func (args *FilterCriteria) UnmarshalJSON(data []byte) error {
 		}
 	}
 
+	args.Addresses = []common.Address{}
+
 	if raw.Addresses != nil {
-		addresses, err := parseAddresses(raw.Addresses)
-		if err != nil {
-			return err
+		// raw.Address can contain a single address or an array of addresses
+		switch rawAddr := raw.Addresses.(type) {
+		case []interface{}:
+			for i, addr := range rawAddr {
+				if strAddr, ok := addr.(string); ok {
+					addr, err := decodeAddress(strAddr)
+					if err != nil {
+						return fmt.Errorf("invalid address at index %d: %v", i, err)
+					}
+					args.Addresses = append(args.Addresses, addr)
+				} else {
+					return fmt.Errorf("non-string address at index %d", i)
+				}
+			}
+		case string:
+			addr, err := decodeAddress(rawAddr)
+			if err != nil {
+				return fmt.Errorf("invalid address: %v", err)
+			}
+			args.Addresses = []common.Address{addr}
+		default:
+			return errors.New("invalid addresses in query")
 		}
-		args.Addresses = addresses
 	}
 
 	// topics is an array consisting of strings and/or arrays of strings.
